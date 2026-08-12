@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 export default function CheckoutPage() {
-  const { cart } = useCart();
+  const { cart, clearCart } = useCart();
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
     name: "",
@@ -18,6 +18,7 @@ export default function CheckoutPage() {
     postalCode: "",
   });
   const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const shipping = subtotal > 50 ? 0 : 9.99;
@@ -29,15 +30,35 @@ export default function CheckoutPage() {
 
   const handlePayNow = async () => {
     setIsProcessing(true);
-    const response = await fetch("/api/checkout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cart, customer: form }),
-    });
-    const data = await response.json();
-    setIsProcessing(false);
-    if (data?.url) {
-      window.location.href = data.url;
+    setError(null);
+    try {
+      const response = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cart, customer: form }),
+      });
+
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Server returned an invalid non-JSON response.");
+      }
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to process checkout. Please try again.");
+      }
+
+      if (data?.url) {
+        clearCart();
+        window.location.href = data.url;
+      } else {
+        throw new Error("Invalid response received from checkout server.");
+      }
+    } catch (err: any) {
+      console.error("Checkout Error:", err);
+      setError(err?.message || "Something went wrong. Please check your connection and try again.");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -118,6 +139,11 @@ export default function CheckoutPage() {
                   <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 text-sm text-orange-700">
                     This demo uses Stripe test mode. No real charges will be made.
                   </div>
+                  {error && (
+                    <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                      {error}
+                    </div>
+                  )}
                   <div className="flex justify-between gap-3 pt-2">
                     <Button variant="outline" onClick={() => setStep(2)}>Back</Button>
                     <Button onClick={handlePayNow} disabled={isProcessing} className="bg-black text-white hover:bg-orange-600">
