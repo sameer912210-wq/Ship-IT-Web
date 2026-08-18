@@ -25,11 +25,16 @@ export async function POST(req: NextRequest) {
     const token = jwt.sign({ sub: user.id, email: user.email }, JWT_SECRET, { expiresIn: "7d" });
 
     const isProd = process.env.NODE_ENV === "production";
-    const cookie = `token=${token}; HttpOnly; Path=/; Max-Age=${7 * 24 * 60 * 60}; SameSite=Strict${isProd ? "; Secure" : ""}`;
 
     const safeUser = { id: user.id, fullName: user.fullName, phone: user.phone, email: user.email, address: user.address, createdAt: user.createdAt };
     const res = NextResponse.json({ user: safeUser });
-    res.headers.set("Set-Cookie", cookie);
+    res.cookies.set("token", token, {
+      httpOnly: true,
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60,
+      sameSite: "strict",
+      secure: isProd,
+    });
     return res;
   } catch (err) {
     console.error("Login error:", err);
