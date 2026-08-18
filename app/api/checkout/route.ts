@@ -1,7 +1,26 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
+import jwt from "jsonwebtoken";
+
+const JWT_SECRET = process.env.JWT_SECRET || "dev_jwt_secret";
+
+function parseTokenFromCookie(cookieHeader: string | null) {
+  if (!cookieHeader) return null;
+  const match = cookieHeader.match(/(?:^|; )token=([^;]+)/);
+  return match ? match[1] : null;
+}
 
 export async function POST(request: Request) {
   try {
+    const cookieHeader = (request as NextRequest).headers.get("cookie");
+    const token = parseTokenFromCookie(cookieHeader);
+    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    try {
+      jwt.verify(token, JWT_SECRET);
+    } catch (e) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { cart, customer } = await request.json();
 
     // Simulate network processing delay for a realistic checkout experience

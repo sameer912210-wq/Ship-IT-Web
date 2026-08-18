@@ -1,22 +1,55 @@
 "use client";
 
 import { useCart } from "@/context/CartContext";
+import { useAuth } from "@/context/AuthContext";
 import { Menu, Search, ShoppingCart, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "../ui/button";
 
 export default function Header() {
   const { cart } = useCart();
+  const { user, logout } = useAuth();
   const cartCount =
     cart?.reduce((total, item) => total + item.quantity, 0) || 0;
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+
+  const desktopRef = useRef<HTMLDivElement>(null);
+  const mobileRef = useRef<HTMLDivElement>(null);
+
+  const handleSignout = async () => {
+    try {
+      await logout();
+      alert("Signed out successfully");
+      setIsProfileOpen(false);
+    } catch (e) {
+      console.error("Signout error:", e);
+    }
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      const clickedOutsideDesktop = !desktopRef.current || !desktopRef.current.contains(target);
+      const clickedOutsideMobile = !mobileRef.current || !mobileRef.current.contains(target);
+
+      if (isProfileOpen && clickedOutsideDesktop && clickedOutsideMobile) {
+        setIsProfileOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isProfileOpen]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -145,16 +178,72 @@ export default function Header() {
             </Link>
 
             <div className="hidden sm:flex items-center space-x-2">
-              <Link href="/">
-                <Button variant="ghost" size="sm" className="text-sm">
-                  Sign In
-                </Button>
-              </Link>
-              <Link href="/">
-                <Button size="sm" variant="default" className="text-sm">
-                  Sign Up
-                </Button>
-              </Link>
+              {user ? (
+                <div ref={desktopRef} className="relative">
+                  <button
+                    onClick={() => setIsProfileOpen((prev) => !prev)}
+                    className="text-sm font-medium text-gray-700 hover:text-orange-600 transition-colors py-2 px-3 rounded-lg hover:bg-gray-50 flex items-center gap-1.5"
+                  >
+                    Welcome <span className="font-semibold text-black">{user.fullName}</span>
+                  </button>
+                  {isProfileOpen && (
+                    <div className="absolute right-0 mt-2 w-80 z-50 rounded-2xl border border-gray-200 bg-white p-6 shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
+                      <button
+                        onClick={() => setIsProfileOpen(false)}
+                        className="absolute top-4 right-4 p-1.5 rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+                        aria-label="Close details"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+
+                      <div className="flex flex-col items-center text-center pb-4 border-b border-gray-100">
+                        <div className="w-12 h-12 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-lg mb-2 shadow-inner">
+                          {user.fullName.charAt(0).toUpperCase()}
+                        </div>
+                        <h2 className="text-base font-semibold text-gray-900">{user.fullName}</h2>
+                        <p className="text-xs text-gray-500">{user.email}</p>
+                      </div>
+
+                      <div className="py-3 space-y-2 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Phone:</span>
+                          <span className="font-medium text-gray-900">{user.phone || "Not provided"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Address:</span>
+                          <span className="font-medium text-gray-900 max-w-[150px] truncate text-right" title={user.address}>
+                            {user.address || "Not provided"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="pt-3 border-t border-gray-100 flex flex-col">
+                        <Button
+                          onClick={handleSignout}
+                          variant="destructive"
+                          size="sm"
+                          className="w-full bg-red-600 text-white hover:bg-red-700 transition-colors"
+                        >
+                          Sign Out
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <Link href="/login">
+                    <Button variant="ghost" size="sm" className="text-sm">
+                      Sign In
+                    </Button>
+                  </Link>
+                  <Link href="/signup">
+                    <Button size="sm" variant="default" className="text-sm">
+                      Sign Up
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -200,21 +289,78 @@ export default function Header() {
               ))}
             </div>
 
-            <div className="flex flex-col space-y-3 pt-4 sm:hidden">
-              <Button variant="outline" className="w-full text-sm" asChild>
-                <Link href="/" onClick={closeMobileMenu}>
-                  Sign In
-                </Link>
-              </Button>
-              <Button className="w-full text-sm" variant="default" asChild>
-                <Link href="/" onClick={closeMobileMenu}>
-                  Sign Up
-                </Link>
-              </Button>
-            </div>
+            {user ? (
+              <div ref={mobileRef} className="flex flex-col space-y-3 pt-4 sm:hidden border-t border-gray-100 relative">
+                <button
+                  onClick={() => {
+                    setIsProfileOpen((prev) => !prev);
+                  }}
+                  className="w-full text-left py-2 px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg"
+                >
+                  Welcome <span className="font-semibold text-black">{user.fullName}</span>
+                </button>
+                {isProfileOpen && (
+                  <div className="absolute left-0 right-0 mt-2 z-50 rounded-2xl border border-gray-200 bg-white p-6 shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
+                    <button
+                      onClick={() => setIsProfileOpen(false)}
+                      className="absolute top-4 right-4 p-1.5 rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+                      aria-label="Close details"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+
+                    <div className="flex flex-col items-center text-center pb-4 border-b border-gray-100">
+                      <div className="w-12 h-12 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-lg mb-2 shadow-inner">
+                        {user.fullName.charAt(0).toUpperCase()}
+                      </div>
+                      <h2 className="text-base font-semibold text-gray-900">{user.fullName}</h2>
+                      <p className="text-xs text-gray-500">{user.email}</p>
+                    </div>
+
+                    <div className="py-3 space-y-2 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Phone:</span>
+                        <span className="font-medium text-gray-900">{user.phone || "Not provided"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Address:</span>
+                        <span className="font-medium text-gray-900 max-w-[180px] truncate text-right" title={user.address}>
+                          {user.address || "Not provided"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-gray-100 flex flex-col">
+                      <Button
+                        onClick={handleSignout}
+                        variant="destructive"
+                        size="sm"
+                        className="w-full bg-red-600 text-white hover:bg-red-700 transition-colors"
+                      >
+                        Sign Out
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col space-y-3 pt-4 sm:hidden">
+                <Button variant="outline" className="w-full text-sm" asChild>
+                  <Link href="/login" onClick={closeMobileMenu}>
+                    Sign In
+                  </Link>
+                </Button>
+                <Button className="w-full text-sm" variant="default" asChild>
+                  <Link href="/signup" onClick={closeMobileMenu}>
+                    Sign Up
+                  </Link>
+                </Button>
+              </div>
+            )}
           </nav>
         )}
       </div>
+
     </header>
   );
 }
