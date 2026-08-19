@@ -5,11 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useCart } from "@/context/CartContext";
+import { useAuth } from "@/context/AuthContext";
 import { CreditCard, Heart, Shield, Truck } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 
 export default function OrderSummary() {
   const { cart } = useCart();
+  const { user } = useAuth();
+  const [showAuthWarning, setShowAuthWarning] = useState(false);
 
   const subtotal = cart.reduce(
     (sum, item) => sum + item.price * item.quantity,
@@ -77,16 +81,39 @@ export default function OrderSummary() {
           </div>
         )}
 
-        <Button
-          size="lg"
-          className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
-          asChild
-        >
-          <Link href="/checkout" className="flex items-center gap-2">
-            <CreditCard className="h-4 w-4" />
-            Proceed to Checkout
-          </Link>
-        </Button>
+        {!showAuthWarning ? (
+          <Button
+            size="lg"
+            className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={(e) => {
+              if (!user) {
+                e.preventDefault();
+                setShowAuthWarning(true);
+              }
+            }}
+            asChild={!!user}
+          >
+            {user ? (
+              <Link href="/checkout" className="flex items-center gap-2">
+                <CreditCard className="h-4 w-4" />
+                Proceed to Checkout
+              </Link>
+            ) : (
+              <span className="flex items-center gap-2 cursor-pointer">
+                <CreditCard className="h-4 w-4" />
+                Proceed to Checkout
+              </span>
+            )}
+          </Button>
+        ) : (
+          <div className="space-y-3 border border-red-200 bg-red-50 p-4 rounded-xl text-center">
+            <p className="text-sm font-medium text-red-800">Please sign in to checkout</p>
+            <Button size="sm" className="w-full" asChild>
+              <Link href="/login?redirect=/cart">Sign in</Link>
+            </Button>
+          </div>
+        )}
+
 
         <div className="space-y-3 pt-4 border-t border-border">
           <div className="flex items-center gap-3 text-sm text-muted-foreground">

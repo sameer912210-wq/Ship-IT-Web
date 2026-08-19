@@ -16,4 +16,21 @@ model User {
   passwordHash String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  orders       Order[]
 }
+
+model Order {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  items      Json
+  total      Float
+  status     String   @default("Processing")
+  name       String
+  email      String
+  address    String
+  city       String
+  postalCode String
+  createdAt  DateTime @default(now())
+}
+

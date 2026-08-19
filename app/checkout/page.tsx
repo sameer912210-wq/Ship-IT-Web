@@ -3,12 +3,14 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCart } from "@/context/CartContext";
+import { useAuth } from "@/context/AuthContext";
 import { ArrowRight, CheckCircle2, CreditCard, MapPin, PackageCheck } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function CheckoutPage() {
   const { cart, clearCart } = useCart();
+  const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
     name: "",
@@ -19,6 +21,27 @@ export default function CheckoutPage() {
   });
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      setForm((prev) => ({
+        ...prev,
+        name: prev.name || user.fullName || "",
+        email: prev.email || user.email || "",
+        address: prev.address || user.address || "",
+      }));
+    }
+  }, [user]);
+
+  const handleReviewOrder = () => {
+    if (!form.name.trim() || !form.email.trim() || !form.address.trim() || !form.city.trim() || !form.postalCode.trim()) {
+      setValidationError("Please enter user details");
+      return;
+    }
+    setValidationError(null);
+    setStep(2);
+  };
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const shipping = subtotal > 50 ? 0 : 9.99;
@@ -26,6 +49,7 @@ export default function CheckoutPage() {
 
   const updateField = (field: keyof typeof form, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+    setValidationError(null);
   };
 
   const handlePayNow = async () => {
@@ -94,8 +118,13 @@ export default function CheckoutPage() {
                     <Input placeholder="City" value={form.city} onChange={(e) => updateField("city", e.target.value)} />
                     <Input placeholder="Postal code" value={form.postalCode} onChange={(e) => updateField("postalCode", e.target.value)} />
                   </div>
-                  <div className="flex justify-end">
-                    <Button onClick={() => setStep(2)} className="bg-black text-white hover:bg-orange-600">Review order</Button>
+                  {validationError && (
+                    <div className="text-sm font-medium text-red-600 mt-2">
+                      {validationError}
+                    </div>
+                  )}
+                  <div className="flex justify-end mt-4">
+                    <Button onClick={handleReviewOrder} className="bg-black text-white hover:bg-orange-600">Review order</Button>
                   </div>
                 </div>
               )}
@@ -137,7 +166,7 @@ export default function CheckoutPage() {
                     </div>
                   </div>
                   <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 text-sm text-orange-700">
-                    This demo uses Stripe test mode. No real charges will be made.
+                    This is a Demo website. No real charges will be made.
                   </div>
                   {error && (
                     <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
